@@ -1,6 +1,5 @@
 import os
-import sys
-import cv2
+import subprocess
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
@@ -11,16 +10,6 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.popup import Popup
 from kivy.utils import platform
-
-def get_android_activity():
-    if platform == 'android':
-        try:
-            from jnius import autoclass
-            PythonActivity = autoclass('org.kivy.android.PythonActivity')
-            return PythonActivity.mActivity
-        except Exception as e:
-            print(f"Activity Error: {e}")
-    return None
 
 class WatermarkMakerApp(App):
     def build(self):
@@ -91,32 +80,6 @@ class WatermarkMakerApp(App):
         
         return main_layout
 
-    def on_start(self):
-        if platform == 'android':
-            try:
-                from android.permissions import request_permissions, Permission
-                request_permissions([
-                    Permission.READ_EXTERNAL_STORAGE,
-                    Permission.WRITE_EXTERNAL_STORAGE
-                ])
-                
-                activity = get_android_activity()
-                if activity:
-                    from jnius import autoclass
-                    Build = autoclass('android.os.Build')
-                    if Build.VERSION.SDK_INT >= 30:
-                        Environment = autoclass('android.os.Environment')
-                        if not Environment.isExternalStorageManager():
-                            Intent = autoclass('android.content.Intent')
-                            Settings = autoclass('android.provider.Settings')
-                            Uri = autoclass('android.net.Uri')
-                            
-                            intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
-                            intent.setData(Uri.parse(f"package:{activity.getPackageName()}"))
-                            activity.startActivity(intent)
-            except Exception as e:
-                self.status_label.text = f"[color=ff5555]Permission Notice: {e}[/color]"
-
     def open_file_picker(self, instance):
         layout = BoxLayout(orientation='vertical')
         filechooser = FileChooserListView(path='/storage/emulated/0', filters=['*.mp4', '*.mkv', '*.mov'])
@@ -166,7 +129,7 @@ class WatermarkMakerApp(App):
         output_dir = "/storage/emulated/0/best_WM"
         os.makedirs(output_dir, exist_ok=True)
         
-        watermark_text = self.text_input.text
+        text = self.text_input.text
         total = len(self.selected_files)
 
         for idx, file_path in enumerate(self.selected_files, 1):
@@ -176,35 +139,14 @@ class WatermarkMakerApp(App):
             try:
                 self.status_label.text = f"Processing ({idx}/{total}): {file_name}..."
                 
-                cap = cv2.VideoCapture(file_path)
-                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                fps = cap.get(cv2.CAP_PROP_FPS)
-                if fps == 0 or fps is None:
-                    fps = 25.0
+                # FFmpeg command for overlay watermark (No C-extensions needed)
+                cmd = [
+                    'ffmpeg', '-y', '-i', file_path,
+                    '-vf', f"drawtext=text='{text}':x=20:y=20:fontsize=24:fontcolor=white",
+                    '-c:a', 'copy', output_path
+                ]
                 
-                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-                out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-                
-                while cap.isOpened():
-                    ret, frame = cap.read()
-                    if not ret:
-                        break
-                    
-                    cv2.putText(
-                        frame, 
-                        watermark_text, 
-                        (30, 50), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 
-                        1.0, 
-                        (255, 255, 255), 
-                        2, 
-                        cv2.LINE_AA
-                    )
-                    out.write(frame)
-                    
-                cap.release()
-                out.release()
+                subprocess.run(cmd, check=True)
                 
             except Exception as e:
                 self.status_label.text = f"[color=ff5555]Error processing {file_name}:\n{str(e)}[/color]"
