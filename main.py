@@ -11,6 +11,16 @@ from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.popup import Popup
 from kivy.utils import platform
 
+def get_android_activity():
+    if platform == 'android':
+        try:
+            from jnius import autoclass
+            PythonActivity = autoclass('org.kivy.android.PythonActivity')
+            return PythonActivity.mActivity
+        except Exception as e:
+            print(f"Activity Error: {e}")
+    return None
+
 class WatermarkMakerApp(App):
     def build(self):
         self.selected_files = []
@@ -80,6 +90,32 @@ class WatermarkMakerApp(App):
         
         return main_layout
 
+    def on_start(self):
+        if platform == 'android':
+            try:
+                from android.permissions import request_permissions, Permission
+                request_permissions([
+                    Permission.READ_EXTERNAL_STORAGE,
+                    Permission.WRITE_EXTERNAL_STORAGE
+                ])
+                
+                activity = get_android_activity()
+                if activity:
+                    from jnius import autoclass
+                    Build = autoclass('android.os.Build')
+                    if Build.VERSION.SDK_INT >= 30:
+                        Environment = autoclass('android.os.Environment')
+                        if not Environment.isExternalStorageManager():
+                            Intent = autoclass('android.content.Intent')
+                            Settings = autoclass('android.provider.Settings')
+                            Uri = autoclass('android.net.Uri')
+                            
+                            intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                            intent.setData(Uri.parse(f"package:{activity.getPackageName()}"))
+                            activity.startActivity(intent)
+            except Exception as e:
+                self.status_label.text = f"[color=ff5555]Permission Notice: {e}[/color]"
+
     def open_file_picker(self, instance):
         layout = BoxLayout(orientation='vertical')
         filechooser = FileChooserListView(path='/storage/emulated/0', filters=['*.mp4', '*.mkv', '*.mov'])
@@ -139,14 +175,9 @@ class WatermarkMakerApp(App):
             try:
                 self.status_label.text = f"Processing ({idx}/{total}): {file_name}..."
                 
-                # FFmpeg command for overlay watermark (No C-extensions needed)
-                cmd = [
-                    'ffmpeg', '-y', '-i', file_path,
-                    '-vf', f"drawtext=text='{text}':x=20:y=20:fontsize=24:fontcolor=white",
-                    '-c:a', 'copy', output_path
-                ]
-                
-                subprocess.run(cmd, check=True)
+                # FFmpeg direct system call
+                cmd = f"ffmpeg -y -i '{file_path}' -vf \"drawtext=text='{text}':x=20:y=20:fontsize=24:fontcolor=white\" -c:a copy '{output_path}'"
+                os.system(cmd)
                 
             except Exception as e:
                 self.status_label.text = f"[color=ff5555]Error processing {file_name}:\n{str(e)}[/color]"
