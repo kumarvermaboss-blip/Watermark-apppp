@@ -19,7 +19,7 @@ source.include_exts = py,png,jpg,kv,atlas
 version = 0.1
 
 # (list) Application requirements
-requirements = python3,kivy,pillow,moviepy,decorator,tqdm,proglog
+requirements = python3,kivy,numpy,pillow,moviepy,decorator,tqdm,proglog
 
 # (str) Supported orientation
 orientation = portrait
