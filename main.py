@@ -9,29 +9,6 @@ from kivy.uix.label import Label
 from kivy.uix.scrollview import ScrollView
 from kivy.utils import platform
 
-# Request Storage Permissions on Android Startup
-if platform == 'android':
-    from android.permissions import request_permissions, Permission
-    request_permissions([
-        Permission.READ_EXTERNAL_STORAGE,
-        Permission.WRITE_EXTERNAL_STORAGE
-    ])
-    
-    from jnius import autoclass
-    from android import activity
-    
-    Build = autoclass('android.os.Build')
-    if Build.VERSION.SDK_INT >= 30:
-        Environment = autoclass('android.os.Environment')
-        if not Environment.isExternalStorageManager():
-            Intent = autoclass('android.content.Intent')
-            Settings = autoclass('android.provider.Settings')
-            Uri = autoclass('android.net.Uri')
-            
-            intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
-            intent.setData(Uri.parse(f"package:{activity.mActivity.getPackageName()}"))
-            activity.mActivity.startActivity(intent)
-
 class WatermarkMakerApp(App):
     def build(self):
         self.selected_files = []
@@ -103,21 +80,48 @@ class WatermarkMakerApp(App):
         
         return main_layout
 
+    def on_start(self):
+        if platform == 'android':
+            try:
+                from android.permissions import request_permissions, Permission
+                request_permissions([
+                    Permission.READ_EXTERNAL_STORAGE,
+                    Permission.WRITE_EXTERNAL_STORAGE
+                ])
+                
+                from jnius import autoclass
+                from android import activity
+                
+                Build = autoclass('android.os.Build')
+                if Build.VERSION.SDK_INT >= 30:
+                    Environment = autoclass('android.os.Environment')
+                    if not Environment.isExternalStorageManager():
+                        Intent = autoclass('android.content.Intent')
+                        Settings = autoclass('android.provider.Settings')
+                        Uri = autoclass('android.net.Uri')
+                        
+                        intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                        intent.setData(Uri.parse(f"package:{activity.mActivity.getPackageName()}"))
+                        activity.mActivity.startActivity(intent)
+            except Exception as e:
+                print(f"Permission error: {e}")
+
     def open_file_picker(self, instance):
         if platform == 'android':
-            from jnius import autoclass
-            from android import activity
-            
-            Intent = autoclass('android.content.Intent')
-            intent = Intent(Intent.ACTION_GET_CONTENT)
-            intent.setType("video/*")
-            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, True)
-            intent.addCategory(Intent.CATEGORY_OPENABLE)
-            
-            activity.mActivity.startActivityForResult(
-                Intent.createChooser(intent, "Select Videos"), 1001
-            )
-            self.status_label.text = "Opening File Manager..."
+            try:
+                from jnius import autoclass
+                from android import activity
+                
+                Intent = autoclass('android.content.Intent')
+                intent = Intent(Intent.ACTION_GET_CONTENT)
+                intent.setType("video/*")
+                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, True)
+                intent.addCategory(Intent.CATEGORY_OPENABLE)
+                
+                activity.mActivity.startActivity(Intent.createChooser(intent, "Select Videos"))
+                self.status_label.text = "Opening File Manager..."
+            except Exception as e:
+                self.status_label.text = f"Picker error: {e}"
         else:
             self.status_label.text = "File picker runs on Android device."
 
