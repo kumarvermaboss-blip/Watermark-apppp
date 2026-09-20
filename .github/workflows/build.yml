@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    timeout-minutes: 60
 
     steps:
     - uses: actions/checkout@v4
@@ -23,6 +24,17 @@ jobs:
       with:
         python-version: '3.10'
 
+    # Speed enhancement: Cache buildozer & SDK/NDK
+    - name: Cache Buildozer & Android SDK/NDK
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.buildozer
+          .buildozer
+        key: ${{ runner.os }}-buildozer-arm64
+        restore-keys: |
+          ${{ runner.os }}-buildozer-
+
     - name: Install System Dependencies
       run: |
         sudo apt-get update
@@ -33,7 +45,6 @@ jobs:
 
     - name: Patch p4a pip upgrade bug
       run: |
-        # Override p4a pip command so it never upgrades pip inside venv
         python -c "
         import os, site
         for p in site.getsitepackages():
