@@ -6,25 +6,25 @@ title = Watermark Maker
 # (str) Package name
 package.name = watermarkapp
 
-# (str) Package domain (needed for android/ios packaging)
+# (str) Package domain
 package.domain = org.test
 
-# (str) Source code where the main.py live
+# (str) Source code directory
 source.dir = .
 
-# (list) Source files to include
+# (list) Source files
 source.include_exts = py,png,jpg,kv,atlas
 
 # (str) Application version
 version = 0.1
 
 # (list) Application requirements
-requirements = python3,kivy,ffmpeg
+requirements = python3,kivy
 
 # (str) Supported orientation
 orientation = portrait
 
-# (bool) Indicate if the application should be fullscreen or not
+# (bool) Fullscreen
 fullscreen = 0
 
 # (list) Permissions for Android 11+ and Media Access
