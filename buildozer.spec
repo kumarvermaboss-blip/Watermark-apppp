@@ -19,7 +19,9 @@ android.api = 33
 android.minapi = 24
 android.ndk = 25c
 android.accept_sdk_license = True
-android.archs = arm64-v8a, armeabi-v7a
+
+# Fast compilation ke liye sirf arm64-v8a rakhein
+android.archs = arm64-v8a
 android.bootstrap = sdl2
 
 android.gradle_dependencies = com.arthenica:ffmpeg-kit-full:4.5.LTS
