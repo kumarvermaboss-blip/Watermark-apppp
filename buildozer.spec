@@ -10,14 +10,14 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
 version = 0.1
 
-# Minimum C-extension dependencies (FFmpeg handle karega video processing)
-requirements = python3,kivy,pillow,ffpyplayer
+# Pure Python/Kivy requirements (No C-extension compilation errors)
+requirements = python3,kivy,pillow
 
 # App settings
 orientation = portrait
 fullscreen = 0
 
-# Android Permissions
+# Permissions
 android.permissions = READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE, MANAGE_EXTERNAL_STORAGE, READ_MEDIA_VIDEO
 
 # API Settings
