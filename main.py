@@ -1,6 +1,6 @@
 import os
+import sys
 import subprocess
-import imageio_ffmpeg
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
@@ -16,17 +16,17 @@ class WatermarkMakerApp(App):
         
         main_layout = BoxLayout(orientation='vertical', padding=15, spacing=15)
         
-        # Application Header
+        # Header Title
         header = Label(
             text="[b]Watermark Maker[/b]",
             markup=True,
             font_size='22sp',
             size_hint=(1, 0.08),
-            color=(0.1, 0.1, 0.1, 1)
+            color=(1, 1, 1, 1)
         )
         main_layout.add_widget(header)
         
-        # Action Dashboard Cards
+        # Dashboard Action Buttons
         grid = GridLayout(cols=2, spacing=10, size_hint=(1, 0.25))
         
         btn_select_files = Button(
@@ -47,7 +47,7 @@ class WatermarkMakerApp(App):
         grid.add_widget(btn_select_folder)
         main_layout.add_widget(grid)
         
-        # Watermark Text Box
+        # Watermark Input Field
         self.text_input = TextInput(
             text="@PLfolders (Tg Search)",
             multiline=False,
@@ -56,20 +56,25 @@ class WatermarkMakerApp(App):
         )
         main_layout.add_widget(self.text_input)
         
-        # Scrollable Status Display Box
-        scroll = ScrollView(size_hint=(1, 0.35))
+        # Fixed Scrollable Log / Error Display Area
+        scroll = ScrollView(size_hint=(1, 0.40))
         self.status_label = Label(
             text="Select videos or click 'Process Folder' to start...",
             size_hint_y=None,
-            color=(0.3, 0.3, 0.3, 1),
+            color=(0.9, 0.9, 0.9, 1),  # Bright readable white/grey text
             halign='left',
-            valign='top'
+            valign='top',
+            markup=True
         )
-        self.status_label.bind(texture_size=self.status_label.setter('size'))
+        # Text wrapping aur height auto-adjust settings
+        self.status_label.bind(
+            width=lambda instance, value: setattr(instance, 'text_size', (value - 20, None)),
+            texture_size=lambda instance, value: setattr(instance, 'height', value[1])
+        )
         scroll.add_widget(self.status_label)
         main_layout.add_widget(scroll)
         
-        # Execution Button
+        # Start Process Button
         start_btn = Button(
             text="Start Watermarking",
             size_hint=(1, 0.12),
@@ -105,7 +110,7 @@ class WatermarkMakerApp(App):
                         intent.setData(Uri.parse(f"package:{activity.mActivity.getPackageName()}"))
                         activity.mActivity.startActivity(intent)
             except Exception as e:
-                print(f"Permission error: {e}")
+                self.status_label.text = f"[color=ff5555]Permission Error: {e}[/color]"
 
     def open_file_picker(self, instance):
         if platform == 'android':
@@ -122,7 +127,7 @@ class WatermarkMakerApp(App):
                 activity.mActivity.startActivity(Intent.createChooser(intent, "Select Videos"))
                 self.status_label.text = "Opening File Manager..."
             except Exception as e:
-                self.status_label.text = f"Picker error: {e}"
+                self.status_label.text = f"[color=ff5555]Picker Error: {e}[/color]"
         else:
             self.status_label.text = "File picker runs on Android device."
 
@@ -134,16 +139,28 @@ class WatermarkMakerApp(App):
             if files:
                 self.status_label.text = f"Found {len(files)} video(s) in /best:\n" + "\n".join([os.path.basename(f) for f in files])
             else:
-                self.status_label.text = "No video files found in /best"
+                self.status_label.text = "[color=ffaa00]No video files found in /best[/color]"
         else:
-            self.status_label.text = f"Folder not found: {folder_path}"
+            self.status_label.text = f"[color=ff5555]Folder not found: {folder_path}[/color]"
+
+    def get_ffmpeg_cmd(self):
+        if platform == 'android':
+            possible_paths = [
+                "/data/data/org.test.watermarkapp/files/app/ffmpeg",
+                os.path.join(os.environ.get("PYTHONPATH", ""), "ffmpeg"),
+                "ffmpeg"
+            ]
+            for path in possible_paths:
+                if os.path.exists(path):
+                    return path
+        return "ffmpeg"
 
     def start_processing(self, instance):
         if not self.selected_files:
             self.load_folder_videos(None)
             
         if not self.selected_files:
-            self.status_label.text = "No videos selected to watermark."
+            self.status_label.text = "[color=ffaa00]No videos selected to watermark.[/color]"
             return
             
         output_dir = "/storage/emulated/0/best_WM"
@@ -151,13 +168,7 @@ class WatermarkMakerApp(App):
         
         watermark_text = self.text_input.text
         total = len(self.selected_files)
-        
-        # Get bundeled FFmpeg executable path
-        try:
-            ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-        except Exception as e:
-            self.status_label.text = f"FFmpeg Executable error: {str(e)}"
-            return
+        ffmpeg_bin = self.get_ffmpeg_cmd()
         
         for idx, file_path in enumerate(self.selected_files, 1):
             file_name = os.path.basename(file_path)
@@ -165,7 +176,7 @@ class WatermarkMakerApp(App):
             
             filter_complex = f"drawtext=text='{watermark_text}':x=10:y=10:fontsize=24:fontcolor=white"
             cmd = [
-                ffmpeg_exe, "-y",
+                ffmpeg_bin, "-y",
                 "-i", file_path,
                 "-vf", filter_complex,
                 "-codec:a", "copy",
@@ -175,13 +186,13 @@ class WatermarkMakerApp(App):
             try:
                 res = subprocess.run(cmd, capture_output=True, text=True)
                 if res.returncode != 0:
-                    self.status_label.text = f"Error processing {file_name}:\n{res.stderr}"
+                    self.status_label.text = f"[color=ff5555]Error processing {file_name}:\n{res.stderr}\n\nCommand: {' '.join(cmd)}[/color]"
                     return
             except Exception as e:
-                self.status_label.text = f"FFmpeg Error: {str(e)}"
+                self.status_label.text = f"[color=ff5555]FFmpeg Exec Error:\n{str(e)}[/color]"
                 return
 
-        self.status_label.text = f"Success! {total} video(s) saved to /best_WM"
+        self.status_label.text = f"[color=00ff00]Success! {total} video(s) saved to /best_WM[/color]"
 
 if __name__ == "__main__":
     WatermarkMakerApp().run()
