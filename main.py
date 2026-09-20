@@ -1,5 +1,6 @@
 import os
 import subprocess
+import imageio_ffmpeg
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
@@ -151,13 +152,20 @@ class WatermarkMakerApp(App):
         watermark_text = self.text_input.text
         total = len(self.selected_files)
         
+        # Get bundeled FFmpeg executable path
+        try:
+            ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        except Exception as e:
+            self.status_label.text = f"FFmpeg Executable error: {str(e)}"
+            return
+        
         for idx, file_path in enumerate(self.selected_files, 1):
             file_name = os.path.basename(file_path)
             output_path = os.path.join(output_dir, file_name)
             
             filter_complex = f"drawtext=text='{watermark_text}':x=10:y=10:fontsize=24:fontcolor=white"
             cmd = [
-                "ffmpeg", "-y",
+                ffmpeg_exe, "-y",
                 "-i", file_path,
                 "-vf", filter_complex,
                 "-codec:a", "copy",
@@ -167,7 +175,7 @@ class WatermarkMakerApp(App):
             try:
                 res = subprocess.run(cmd, capture_output=True, text=True)
                 if res.returncode != 0:
-                    self.status_label.text = f"Error processing {file_name}"
+                    self.status_label.text = f"Error processing {file_name}:\n{res.stderr}"
                     return
             except Exception as e:
                 self.status_label.text = f"FFmpeg Error: {str(e)}"
