@@ -1,5 +1,5 @@
 import os
-import subprocess
+import threading
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
@@ -9,17 +9,8 @@ from kivy.uix.label import Label
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.popup import Popup
+from kivy.clock import mainthread
 from kivy.utils import platform
-
-def get_android_activity():
-    if platform == 'android':
-        try:
-            from jnius import autoclass
-            PythonActivity = autoclass('org.kivy.android.PythonActivity')
-            return PythonActivity.mActivity
-        except Exception as e:
-            print(f"Activity Error: {e}")
-    return None
 
 class WatermarkMakerApp(App):
     def build(self):
@@ -85,7 +76,7 @@ class WatermarkMakerApp(App):
             background_color=(0.2, 0.7, 0.3, 1),
             font_size='18sp'
         )
-        start_btn.bind(on_press=self.start_processing)
+        start_btn.bind(on_press=self.trigger_processing)
         main_layout.add_widget(start_btn)
         
         return main_layout
@@ -96,25 +87,11 @@ class WatermarkMakerApp(App):
                 from android.permissions import request_permissions, Permission
                 request_permissions([
                     Permission.READ_EXTERNAL_STORAGE,
-                    Permission.WRITE_EXTERNAL_STORAGE
+                    Permission.WRITE_EXTERNAL_STORAGE,
+                    Permission.READ_MEDIA_VIDEO
                 ])
-                
-                activity = get_android_activity()
-                if activity:
-                    from jnius import autoclass
-                    Build = autoclass('android.os.Build')
-                    if Build.VERSION.SDK_INT >= 30:
-                        Environment = autoclass('android.os.Environment')
-                        if not Environment.isExternalStorageManager():
-                            Intent = autoclass('android.content.Intent')
-                            Settings = autoclass('android.provider.Settings')
-                            Uri = autoclass('android.net.Uri')
-                            
-                            intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
-                            intent.setData(Uri.parse(f"package:{activity.getPackageName()}"))
-                            activity.startActivity(intent)
             except Exception as e:
-                self.status_label.text = f"[color=ff5555]Permission Notice: {e}[/color]"
+                print(f"Permission Request Error: {e}")
 
     def open_file_picker(self, instance):
         layout = BoxLayout(orientation='vertical')
@@ -154,12 +131,19 @@ class WatermarkMakerApp(App):
         else:
             self.status_label.text = f"[color=ff5555]Folder not found: {folder_path}[/color]"
 
-    def start_processing(self, instance):
+    @mainthread
+    def update_status(self, text):
+        self.status_label.text = text
+
+    def trigger_processing(self, instance):
+        threading.Thread(target=self.start_processing_thread).start()
+
+    def start_processing_thread(self):
         if not self.selected_files:
             self.load_folder_videos(None)
             
         if not self.selected_files:
-            self.status_label.text = "[color=ffaa00]No videos selected to watermark.[/color]"
+            self.update_status("[color=ffaa00]No videos selected to watermark.[/color]")
             return
             
         output_dir = "/storage/emulated/0/best_WM"
@@ -167,23 +151,38 @@ class WatermarkMakerApp(App):
         
         text = self.text_input.text
         total = len(self.selected_files)
+        font_path = "/system/fonts/Roboto-Regular.ttf"
+
+        if platform == 'android':
+            from jnius import autoclass
+            FFmpegKit = autoclass('com.arthenica.ffmpegkit.FFmpegKit')
+            ReturnCode = autoclass('com.arthenica.ffmpegkit.ReturnCode')
+        else:
+            self.update_status("[color=ff5555]FFmpeg Kit is only available on Android.[/color]")
+            return
 
         for idx, file_path in enumerate(self.selected_files, 1):
             file_name = os.path.basename(file_path)
             output_path = os.path.join(output_dir, file_name)
             
             try:
-                self.status_label.text = f"Processing ({idx}/{total}): {file_name}..."
+                self.update_status(f"Processing ({idx}/{total}): {file_name}...")
                 
-                # FFmpeg direct system call
-                cmd = f"ffmpeg -y -i '{file_path}' -vf \"drawtext=text='{text}':x=20:y=20:fontsize=24:fontcolor=white\" -c:a copy '{output_path}'"
-                os.system(cmd)
+                # FFmpeg Native Command execution via Android Java SDK
+                cmd = f"-y -i \"{file_path}\" -vf \"drawtext=text='{text}':x=20:y=20:fontsize=24:fontcolor=white:fontfile={font_path}\" -c:a copy \"{output_path}\""
+                
+                session = FFmpegKit.execute(cmd)
+                return_code = session.getReturnCode()
+                
+                if not ReturnCode.isSuccess(return_code):
+                    self.update_status(f"[color=ff5555]FFmpeg Error on {file_name}[/color]")
+                    return
                 
             except Exception as e:
-                self.status_label.text = f"[color=ff5555]Error processing {file_name}:\n{str(e)}[/color]"
+                self.update_status(f"[color=ff5555]Error processing {file_name}:\n{str(e)}[/color]")
                 return
 
-        self.status_label.text = f"[color=00ff00]Success! {total} video(s) saved to /best_WM[/color]"
+        self.update_status(f"[color=00ff00]Success! {total} video(s) saved to /best_WM[/color]")
 
 if __name__ == "__main__":
     WatermarkMakerApp().run()
