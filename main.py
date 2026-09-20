@@ -91,7 +91,7 @@ class WatermarkMakerApp(App):
                     Permission.READ_MEDIA_VIDEO
                 ])
             except Exception as e:
-                print(f"Permission Request Error: {e}")
+                print(f"Permission Error: {e}")
 
     def open_file_picker(self, instance):
         layout = BoxLayout(orientation='vertical')
@@ -151,6 +151,7 @@ class WatermarkMakerApp(App):
         
         text = self.text_input.text
         total = len(self.selected_files)
+        
         font_path = "/system/fonts/Roboto-Regular.ttf"
 
         if platform == 'android':
@@ -158,31 +159,33 @@ class WatermarkMakerApp(App):
             FFmpegKit = autoclass('com.arthenica.ffmpegkit.FFmpegKit')
             ReturnCode = autoclass('com.arthenica.ffmpegkit.ReturnCode')
         else:
-            self.update_status("[color=ff5555]FFmpeg Kit is only available on Android.[/color]")
+            self.update_status("[color=ff5555]FFmpeg Kit is only available on Android environment.[/color]")
             return
 
         for idx, file_path in enumerate(self.selected_files, 1):
             file_name = os.path.basename(file_path)
-            output_path = os.path.join(output_dir, file_name)
+            output_path = os.path.join(output_dir, f"WM_{file_name}")
             
             try:
                 self.update_status(f"Processing ({idx}/{total}): {file_name}...")
                 
-                # FFmpeg Native Command execution via Android Java SDK
-                cmd = f"-y -i \"{file_path}\" -vf \"drawtext=text='{text}':x=20:y=20:fontsize=24:fontcolor=white:fontfile={font_path}\" -c:a copy \"{output_path}\""
+                # Default Static Watermark Filter (Bottom Right)
+                filter_complex = f"drawtext=text='{text}':fontcolor=white@1.0:fontsize=20:x=w-tw-10:y=h-th-10:box=0:fontfile={font_path}"
+                
+                cmd = f"-y -i \"{file_path}\" -vf \"{filter_complex}\" -c:v libx264 -preset ultrafast -crf 23 -c:a copy \"{output_path}\""
                 
                 session = FFmpegKit.execute(cmd)
                 return_code = session.getReturnCode()
                 
                 if not ReturnCode.isSuccess(return_code):
-                    self.update_status(f"[color=ff5555]FFmpeg Error on {file_name}[/color]")
+                    self.update_status(f"[color=ff5555]FFmpeg Error processing: {file_name}[/color]")
                     return
                 
             except Exception as e:
-                self.update_status(f"[color=ff5555]Error processing {file_name}:\n{str(e)}[/color]")
+                self.update_status(f"[color=ff5555]Error: {str(e)}[/color]")
                 return
 
-        self.update_status(f"[color=00ff00]Success! {total} video(s) saved to /best_WM[/color]")
+        self.update_status(f"[color=00ff00]Done! {total} video(s) saved to /storage/emulated/0/best_WM[/color]")
 
 if __name__ == "__main__":
     WatermarkMakerApp().run()
