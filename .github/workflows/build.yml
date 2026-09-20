@@ -24,14 +24,13 @@ jobs:
       with:
         python-version: '3.10'
 
-    # Speed enhancement: Cache buildozer & SDK/NDK
     - name: Cache Buildozer & Android SDK/NDK
       uses: actions/cache@v4
       with:
         path: |
           ~/.buildozer
           .buildozer
-        key: ${{ runner.os }}-buildozer-arm64
+        key: ${{ runner.os }}-buildozer-v2
         restore-keys: |
           ${{ runner.os }}-buildozer-
 
@@ -39,7 +38,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential git libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libportmidi-dev libswscale-dev libavformat-dev libavcodec-dev zlib1g-dev unzip zip ccache autoconf libtool pkg-config libffi-dev libssl-dev
-        pip install "pip<24.0" "setuptools<69.0" wheel
+        python -m pip install --upgrade "pip<24.1" "setuptools<69.0.0" wheel
         pip install cython==0.29.33
         pip install buildozer
 
@@ -47,13 +46,15 @@ jobs:
       run: |
         python -c "
         import os, site
-        for p in site.getsitepackages():
-            target = os.path.join(p, 'pythonforandroid', 'build.py')
-            if os.path.exists(target):
-                with open(target, 'r') as f: content = f.read()
-                content = content.replace('pip install -U pip', 'pip install \"pip<24.0\"')
-                with open(target, 'w') as f: f.write(content)
-                print('Patched successfully!')
+        for site_p in site.getsitepackages():
+            target_file = os.path.join(site_p, 'pythonforandroid', 'build.py')
+            if os.path.exists(target_file):
+                with open(target_file, 'r') as f:
+                    data = f.read()
+                data = data.replace('pip install -U pip', 'pip install \"pip<24.1\" \"setuptools<69.0.0\"')
+                with open(target_file, 'w') as f:
+                    f.write(data)
+                print('Successfully patched python-for-android!')
         "
 
     - name: Build APK with Buildozer
