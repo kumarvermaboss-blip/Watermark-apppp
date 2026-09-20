@@ -1,55 +1,36 @@
 [app]
 
-# (str) Title of your application
+# Application metadata
 title = Watermark Maker
-
-# (str) Package name
 package.name = watermarkapp
-
-# (str) Package domain
 package.domain = org.test
 
-# (str) Source code directory
+# Source code settings
 source.dir = .
-
-# (list) Source files
 source.include_exts = py,png,jpg,kv,atlas
-
-# (str) Application version
 version = 0.1
 
-# (list) Application requirements
-# Note: numpy==1.26.4 pin karne se C-extension compilation failure fix hota hai
-requirements = python3,kivy,numpy==1.26.4,pillow,moviepy,decorator,tqdm,proglog
+# Requirements (numpy version tag removed to prevent git checkout error)
+requirements = python3,kivy,numpy,pillow,moviepy,decorator,tqdm,proglog
 
-# (str) Supported orientation
+# App display & orientations
 orientation = portrait
-
-# (bool) Fullscreen
 fullscreen = 0
 
-# (list) Permissions for Android
+# Android Permissions
 android.permissions = READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE, MANAGE_EXTERNAL_STORAGE, READ_MEDIA_VIDEO
 
-# (int) Target Android API
+# Android SDK & NDK settings (minapi 24 is required for numpy compilation)
 android.api = 33
-
-# (int) Minimum API supported (Numpy requires minapi >= 24)
 android.minapi = 24
-
-# (str) Android NDK version
 android.ndk = 25c
-
-# (bool) Automatically accept SDK license
 android.accept_sdk_license = True
-
-# (str) Target Architecture
 android.archs = arm64-v8a
+
+# Force python-for-android to use master branch for updated build recipes
+p4a.branch = master
 
 [buildozer]
 
-# (int) Log level
 log_level = 2
-
-# (int) Display warning if buildozer is run as root
 warn_on_root = 1
