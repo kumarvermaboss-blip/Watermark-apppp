@@ -1,5 +1,6 @@
 import os
 import sys
+import cv2
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
@@ -11,7 +12,6 @@ from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.popup import Popup
 from kivy.utils import platform
 
-# Activity fix for modern python-for-android
 def get_android_activity():
     if platform == 'android':
         try:
@@ -28,17 +28,14 @@ class WatermarkMakerApp(App):
         
         main_layout = BoxLayout(orientation='vertical', padding=15, spacing=15)
         
-        # Header
         header = Label(
             text="[b]Watermark Maker[/b]",
             markup=True,
             font_size='22sp',
-            size_hint=(1, 0.08),
-            color=(1, 1, 1, 1)
+            size_hint=(1, 0.08)
         )
         main_layout.add_widget(header)
         
-        # Action Buttons
         grid = GridLayout(cols=2, spacing=10, size_hint=(1, 0.22))
         
         btn_select_files = Button(
@@ -59,7 +56,6 @@ class WatermarkMakerApp(App):
         grid.add_widget(btn_select_folder)
         main_layout.add_widget(grid)
         
-        # Watermark Text Box
         self.text_input = TextInput(
             text="@PLfolders (Tg Search)",
             multiline=False,
@@ -68,7 +64,6 @@ class WatermarkMakerApp(App):
         )
         main_layout.add_widget(self.text_input)
         
-        # Scrollable Status / Error Display
         scroll = ScrollView(size_hint=(1, 0.42))
         self.status_label = Label(
             text="Select videos or click 'Process Folder' to start...",
@@ -85,7 +80,6 @@ class WatermarkMakerApp(App):
         scroll.add_widget(self.status_label)
         main_layout.add_widget(scroll)
         
-        # Start Button
         start_btn = Button(
             text="Start Watermarking",
             size_hint=(1, 0.12),
@@ -174,12 +168,6 @@ class WatermarkMakerApp(App):
         
         watermark_text = self.text_input.text
         total = len(self.selected_files)
-        
-        try:
-            from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
-        except Exception as e:
-            self.status_label.text = f"[color=ff5555]Import Error: {str(e)}[/color]"
-            return
 
         for idx, file_path in enumerate(self.selected_files, 1):
             file_name = os.path.basename(file_path)
@@ -187,18 +175,39 @@ class WatermarkMakerApp(App):
             
             try:
                 self.status_label.text = f"Processing ({idx}/{total}): {file_name}..."
-                video = VideoFileClip(file_path)
                 
-                txt_clip = TextClip(watermark_text, fontsize=24, color='white')
-                txt_clip = txt_clip.set_position((10, 10)).set_duration(video.duration)
+                cap = cv2.VideoCapture(file_path)
+                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                if fps == 0 or fps is None:
+                    fps = 25.0
                 
-                result = CompositeVideoClip([video, txt_clip])
-                result.write_videofile(output_path, codec='libx264', audio_codec='aac')
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
                 
-                video.close()
-                result.close()
+                while cap.isOpened():
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+                    
+                    cv2.putText(
+                        frame, 
+                        watermark_text, 
+                        (30, 50), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 
+                        1.0, 
+                        (255, 255, 255), 
+                        2, 
+                        cv2.LINE_AA
+                    )
+                    out.write(frame)
+                    
+                cap.release()
+                out.release()
+                
             except Exception as e:
-                self.status_label.text = f"[color=ff5555]Processing Error on {file_name}:\n{str(e)}[/color]"
+                self.status_label.text = f"[color=ff5555]Error processing {file_name}:\n{str(e)}[/color]"
                 return
 
         self.status_label.text = f"[color=00ff00]Success! {total} video(s) saved to /best_WM[/color]"
