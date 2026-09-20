@@ -19,7 +19,8 @@ source.include_exts = py,png,jpg,kv,atlas
 version = 0.1
 
 # (list) Application requirements
-requirements = python3,kivy,numpy,pillow,moviepy,decorator,tqdm,proglog
+# Note: numpy==1.26.4 pin karne se C-extension compilation failure fix hota hai
+requirements = python3,kivy,numpy==1.26.4,pillow,moviepy,decorator,tqdm,proglog
 
 # (str) Supported orientation
 orientation = portrait
@@ -27,13 +28,13 @@ orientation = portrait
 # (bool) Fullscreen
 fullscreen = 0
 
-# (list) Permissions for Android 11+ and Media Access
+# (list) Permissions for Android
 android.permissions = READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE, MANAGE_EXTERNAL_STORAGE, READ_MEDIA_VIDEO
 
 # (int) Target Android API
 android.api = 33
 
-# (int) Minimum API supported
+# (int) Minimum API supported (Numpy requires minapi >= 24)
 android.minapi = 24
 
 # (str) Android NDK version
